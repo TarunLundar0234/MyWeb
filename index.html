@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 400px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        #status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        #details {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-size: 12px;
+            text-align: left;
+        }
+        #details strong {
+            color: #495057;
+        }
+        .map-link {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .map-link:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📍 Location Tracker</h1>
+        <p>Your location is being captured...</p>
+        <div id="status" class="loading">Getting your high-accuracy location...</div>
+        <div id="details" style="display:none;"></div>
+    </div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const detailsDiv = document.getElementById('details');
+
+        // Function to get location with GPS priority
+        function getLocation() {
+            if (navigator.geolocation) {
+                statusDiv.className = 'loading';
+                statusDiv.textContent = '🛰️ Requesting GPS location from your device...';
+                
+                // First attempt: High accuracy GPS request
+                navigator.geolocation.getCurrentPosition(
+                    sendLocation,
+                    handleError,
+                    {
+                        enableHighAccuracy: true,  // Force GPS usage (not WiFi/IP)
+                        timeout: 30000,            // Wait up to 30 seconds for GPS
+                        maximumAge: 0              // Don't use cached location - get fresh GPS fix
+                    }
+                );
+            } else {
+                statusDiv.className = 'error';
+                statusDiv.textContent = 'Geolocation is not supported by your browser.';
+            }
+        }
+
+        // Function to send location to server
+        function sendLocation(position) {
+            const locationData = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                altitude: position.coords.altitude,
+                altitudeAccuracy: position.coords.altitudeAccuracy,
+                heading: position.coords.heading,
+                speed: position.coords.speed,
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent
+            };
+
+            // Determine location source based on accuracy
+            let locationSource = '';
+            if (locationData.accuracy <= 20) {
+                locationSource = '🛰️ GPS';
+            } else if (locationData.accuracy <= 100) {
+                locationSource = '📶 WiFi/GPS Hybrid';
+            } else if (locationData.accuracy <= 1000) {
+                locationSource = '📶 WiFi/Cell Tower';
+            } else {
+                locationSource = '🌐 IP Address (NOT GPS!)';
+            }
+
+            // Display location details
+            detailsDiv.style.display = 'block';
+            detailsDiv.innerHTML = `
+                <strong>📍 Location Details:</strong><br>
+                <strong>Source:</strong> ${locationSource}<br>
+                <strong>Latitude:</strong> ${locationData.latitude.toFixed(7)}<br>
+                <strong>Longitude:</strong> ${locationData.longitude.toFixed(7)}<br>
+                <strong>Accuracy:</strong> ${locationData.accuracy.toFixed(1)} meters<br>
+                ${locationData.altitude ? `<strong>Altitude:</strong> ${locationData.altitude.toFixed(1)} meters<br>` : ''}
+                ${locationData.speed ? `<strong>Speed:</strong> ${locationData.speed.toFixed(1)} m/s<br>` : ''}
+                ${locationData.heading ? `<strong>Heading:</strong> ${locationData.heading.toFixed(0)}°<br>` : ''}
+                <a href="https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}" target="_blank" class="map-link">📍 View on Google Maps</a>
+            `;
+
+            // Show accuracy warning
+            if (locationData.accuracy > 1000) {
+                statusDiv.className = 'error';
+                statusDiv.innerHTML = `❌ GPS NOT AVAILABLE - Using IP location (${locationData.accuracy.toFixed(0)} meters)<br>
+                    <small><strong>This is likely your ISP's location, not your actual location!</strong></small><br>
+                    <small>• Your device doesn't have GPS OR GPS is disabled</small><br>
+                    <small>• Use a smartphone/tablet with GPS enabled</small><br>
+                    <small>• Go outside for better signal</small><br>
+                    <small>• Enable Location Services in device settings</small>`;
+            } else if (locationData.accuracy > 100) {
+                statusDiv.className = 'warning';
+                statusDiv.innerHTML = `⚠️ GPS signal weak - accuracy is LOW (${locationData.accuracy.toFixed(0)} meters)<br>
+                    <small>Tips for better GPS accuracy:</small><br>
+                    <small>• Go outside (GPS doesn't work well indoors)</small><br>
+                    <small>• Wait 30-60 seconds for GPS to lock onto satellites</small><br>
+                    <small>• Make sure Location Services are enabled</small><br>
+                    <small>• Use a device with built-in GPS (phone/tablet)</small>`;
+            } else if (locationData.accuracy > 50) {
+                statusDiv.className = 'info';
+                statusDiv.textContent = `📍 GPS location found with moderate accuracy (±${locationData.accuracy.toFixed(0)} meters)`;
+            } else {
+                statusDiv.className = 'info';
+                statusDiv.innerHTML = `✅ <strong>GPS LOCK SUCCESSFUL!</strong> High accuracy: ±${locationData.accuracy.toFixed(0)} meters`;
+            }
+
+            // Send to server
+            fetch('/save-location', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(locationData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    setTimeout(() => {
+                        statusDiv.className = 'success';
+                        statusDiv.textContent = '✓ Location saved successfully! Source: ' + locationSource + ', Accuracy: ±' + locationData.accuracy.toFixed(0) + ' meters';
+                    }, 2000);
+                } else {
+                    statusDiv.className = 'error';
+                    statusDiv.textContent = '✗ Failed to save location: ' + data.error;
+                }
+            })
+            .catch(error => {
+                statusDiv.className = 'error';
+                statusDiv.textContent = '✗ Error sending location: ' + error.message;
+            });
+        }
+
+        // Function to handle errors
+        function handleError(error) {
+            statusDiv.className = 'error';
+            detailsDiv.style.display = 'block';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    statusDiv.textContent = '❌ Location permission denied - GPS cannot be accessed';
+                    detailsDiv.innerHTML = `<strong>To enable GPS location:</strong><br>
+                        1. Click the location/lock icon in your browser's address bar<br>
+                        2. Select "Allow" for location access<br>
+                        3. On mobile: Go to Settings → Privacy → Location Services → Enable<br>
+                        4. Refresh this page after enabling`;
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    statusDiv.textContent = '❌ GPS/Location unavailable on this device';
+                    detailsDiv.innerHTML = `<strong>Possible reasons:</strong><br>
+                        • Your device doesn't have GPS hardware (most desktops/laptops)<br>
+                        • Location Services are disabled in device settings<br>
+                        • No GPS/WiFi signal available<br>
+                        • You're indoors (GPS needs clear view of sky)<br>
+                        <br><strong>Solution:</strong> Use a smartphone or tablet with GPS enabled`;
+                    break;
+                case error.TIMEOUT:
+                    statusDiv.textContent = '⏱️ GPS timeout - Could not get location in 30 seconds';
+                    detailsDiv.innerHTML = `<strong>GPS is taking too long. Try:</strong><br>
+                        • Go outside for better GPS satellite view<br>
+                        • Wait longer - GPS can take 1-2 minutes for first fix<br>
+                        • Refresh the page and try again<br>
+                        • Make sure Location Services are enabled<br>
+                        • Restart your device's GPS`;
+                    break;
+                case error.UNKNOWN_ERROR:
+                    statusDiv.textContent = '❌ Unknown error occurred while accessing GPS';
+                    detailsDiv.innerHTML = `<strong>Try:</strong><br>
+                        • Refresh the page<br>
+                        • Use a different browser (Chrome recommended)<br>
+                        • Enable Location Services in device settings<br>
+                        • Use HTTPS instead of HTTP (GPS may require secure connection)`;
+                    break;
+            }
+        }
+
+        // Get location when page loads
+        window.onload = function() {
+            // Show device info
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (!isMobile) {
+                statusDiv.className = 'warning';
+                statusDiv.innerHTML = `⚠️ <strong>Desktop computer detected!</strong><br>
+                    <small>Most desktops don't have GPS. Location may be very inaccurate.</small><br>
+                    <small>For accurate GPS tracking, use a smartphone or tablet.</small><br><br>
+                    <small>Attempting to get location anyway...</small>`;
+                setTimeout(getLocation, 3000);
+            } else {
+                getLocation();
+            }
+        };
+    </script>
+</body>
+</html>

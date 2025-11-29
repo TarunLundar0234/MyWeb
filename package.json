@@ -1,0 +1,19 @@
+{
+  "name": "location-tracker",
+  "version": "1.0.0",
+  "description": "A simple location tracker that saves visitor locations to a file",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "location",
+    "geolocation",
+    "tracker"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
